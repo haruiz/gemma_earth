@@ -43,7 +43,8 @@ Using **LoRA fine-tuning** with JAX/Flax and Tunix, the model learns to accurate
 
 ```bash
 main.py                         # entrypoint example
-src/gemma_earth/trainer.py     # Training + evaluation logic
+src/gemma_earth/__init__.py    # Public package exports
+src/gemma_earth/trainers/      # Base + source-specific trainer implementations
 src/gemma_earth/dataset.py     # Dataset pipeline
 src/gemma_earth/config.py      # Config via .env
 .env.*                         # Environment profiles
@@ -55,7 +56,7 @@ src/gemma_earth/config.py      # Config via .env
 ```bash
 git clone https://github.com/haruiz/gemma_earth
 uv sync
-cp .env.example .env
+cp .env.standard .env
 ```
 
 Update required variables:
@@ -115,6 +116,9 @@ Notes:
 | Parameter | Value | Description |
 | --- | --- | --- |
 | Base model checkpoint | `gs://gemma-data/checkpoints/gemma3-4b-it` | Pretrained Gemma 3 4B IT checkpoint used as the starting point for LoRA fine-tuning. |
+| Base model checkpoint source | `tunix` | Selects checkpoint loader implementation (`tunix` or `huggingface`). |
+| HF model ID | `google/gemma-3-4b-it` | Hugging Face model repo used when checkpoint source is `huggingface`. |
+| HF ignore patterns | `*.pth` | Comma-separated patterns ignored during HF snapshot download. |
 | Tokenizer | `gs://gemma-data/tokenizers/tokenizer_gemma3.model` | Tokenizer model used to convert prompts and responses into token IDs. |
 | LoRA rank | `32` | Adapter rank; higher rank increases trainable LoRA capacity and memory usage. |
 | LoRA alpha | `64.0` | LoRA scaling factor controlling effective update strength of adapters. |
@@ -160,6 +164,13 @@ Train:
 python main.py train
 ```
 
+Train with explicit checkpoint source:
+
+```bash
+python main.py train --model-checkpoint-source tunix
+python main.py train --model-checkpoint-source huggingface
+```
+
 Evaluate:
 
 ```bash
@@ -169,7 +180,21 @@ python main.py eval
 Custom evaluation:
 
 ```bash
-python main.py eval --start-index 200 --num-examples 30
+python main.py eval --start-index 200 --num-examples 30 --model-checkpoint-source tunix
+```
+
+One-example evaluation (single image):
+
+```bash
+python scripts/one_example_eval.py \
+  --model-checkpoint-source huggingface \
+  --model-dir /path/to/hf_checkpoint_dir \
+  --image-path /path/to/image.jpg
+
+python scripts/one_example_eval.py \
+  --model-checkpoint-source tunix \
+  --model-dir gs://gemma-data/checkpoints/gemma3-4b-it \
+  --image-path /path/to/image.jpg
 ```
 
 Outputs:
@@ -180,8 +205,10 @@ results.json
 
 ## Checkpoints
 
-* `train` → strict restore
-* `eval` → permissive restore
+* `--train-restore-policy` supports `strict` and `permissive` (default: `permissive`).
+* `--eval-restore-policy` supports `strict` and `permissive` (default: `permissive`).
+* `permissive` restore works for both checkpoint sources (`tunix` and `huggingface`).
+* `scripts/one_example_eval.py` supports both `tunix` and `huggingface`.
 
 Use consistent `.env` profiles to avoid mismatches.
 
@@ -205,6 +232,41 @@ Planned next steps for this project include:
 * Attempting multitask fine-tuning across classification, captioning, visual question answering, and reasoning tasks.
 * Evaluating cross-task transfer to measure whether multitask training improves generalization on unseen EO scenarios.
 * Studying trade-offs between task balance, training stability, and compute cost on larger TPU runs.
+
+## Contributions
+
+This experiment demonstrates that a Gemma 3 4B IT model can be adapted to remote-sensing scene classification with a lightweight LoRA pipeline on top of EarthDial-derived data.
+
+Main contributions:
+
+* Built an end-to-end EarthDial training/evaluation workflow with reproducible `.env` profiles.
+* Implemented an `EarthDialDataset` class with a Grain-based, JAX-compatible data pipeline for efficient shuffling, mapping, batching, and iteration.
+* Added checkpoint-source flexibility (`tunix` and `huggingface`) for base model loading.
+* Added compatibility-aware checkpoint organization to reduce silent mismatch failures across runs.
+* Added single-image inference tooling for quick qualitative validation (`scripts/one_example_eval.py`).
+* Produced a practical baseline focused on EO classification that can be extended to other EarthDial tasks.
+
+## Extending To Other EarthDial Tasks
+
+Current training in this repo is focused on classification-style examples. To further fine-tune on the rest of EarthDial tasks (captioning, VQA, reasoning, etc.), use the dataset pipeline in [dataset.py](/home/haruiz/workspace/gemma_earth/src/gemma_earth/dataset.py):
+
+1. Define task selection in `EarthDialDataset`:
+Add task filtering before `_build_pipeline(...)` in `build(...)`. Use metadata fields available in each row (for example task/category fields in conversations or sample metadata) and create per-task or mixed-task splits.
+
+2. Adjust prompt/response formatting:
+Update `_format_prompt_and_response(...)` to preserve task-specific instruction style. For generative tasks, keep descriptive answers unchanged; for short-answer tasks, enforce concise target formats.
+
+3. Add task-aware preprocessing:
+Extend `_to_training_example(...)` to emit optional task identifiers (for example prefixes like `Task: Captioning` in prompt text) so a single model can learn multiple behaviors.
+
+4. Tune sampling and balance:
+In `build(...)`, rebalance tasks before split (or oversample underrepresented tasks) to avoid classification dominating the objective.
+
+5. Validate with task-specific eval:
+Reuse `eval(...)` in the trainer as a template, but add task-specific metrics and output normalization per task (for example exact-match for VQA, text quality metrics for captioning).
+
+6. Start with controlled multitask runs:
+Begin with a small subset of 2-3 tasks, verify convergence, then scale to full multitask training once prompt formatting and balancing are stable.
 
 
 ## Credits

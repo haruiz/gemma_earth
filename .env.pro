@@ -5,6 +5,9 @@ HF_DATASET_ALLOW_PATTERN=training_set/**
 
 GEMMA_TOKENIZER_PATH=gs://gemma-data/tokenizers/tokenizer_gemma3.model
 MODEL_CKPT_PATH=gs://gemma-data/checkpoints/gemma3-4b-it
+BASE_MODEL_CHECKPOINT_SOURCE=tunix
+HF_MODEL_ID=google/gemma-3-4b-it
+HF_IGNORE_PATTERNS=*.pth
 
 LORA_RANK=32
 LORA_ALPHA=64.0

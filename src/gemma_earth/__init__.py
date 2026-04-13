@@ -33,6 +33,19 @@ absl_logging.set_stderrthreshold("error")
 
 logger = logging.getLogger("gemma_earth")
 
-from .trainer import GemmaEarth
+from .trainers import (
+    CheckpointModelSource,
+    GemmaEarth,
+    HuggingFaceCheckpointTrainer,
+    TunixCheckpointTrainer,
+    create_trainer,
+)
 
-__all__ = ["logger", "GemmaEarth"]
+__all__ = [
+    "logger",
+    "CheckpointModelSource",
+    "GemmaEarth",
+    "TunixCheckpointTrainer",
+    "HuggingFaceCheckpointTrainer",
+    "create_trainer",
+]

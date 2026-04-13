@@ -20,13 +20,19 @@ def configure_runtime() -> None:
     tempfile.tempdir = TMP_DIR
 
 
-def train(restore_policy: Literal["strict", "permissive"] = "strict") -> None:
+def train(
+    restore_policy: Literal["strict", "permissive"] = "permissive",
+    model_checkpoint_source: Literal["tunix", "huggingface"] | None = None,
+) -> None:
     """Run model training."""
     configure_runtime()
 
-    from gemma_earth.trainer import GemmaEarth
+    from gemma_earth import create_trainer
 
-    gemma_earth = GemmaEarth(restore_policy=restore_policy)
+    gemma_earth = create_trainer(
+        restore_policy=restore_policy,
+        model_source=model_checkpoint_source,
+    )
     gemma_earth.train()
 
 
@@ -34,13 +40,17 @@ def eval(
     start_index: int = 200,
     num_examples: int = 30,
     restore_policy: Literal["strict", "permissive"] = "permissive",
+    model_checkpoint_source: Literal["tunix", "huggingface"] | None = None,
 ) -> None:
     """Run model evaluation and write JSON results."""
     configure_runtime()
 
-    from gemma_earth.trainer import GemmaEarth
+    from gemma_earth import create_trainer
 
-    gemma_earth = GemmaEarth(restore_policy=restore_policy)
+    gemma_earth = create_trainer(
+        restore_policy=restore_policy,
+        model_source=model_checkpoint_source,
+    )
     results = gemma_earth.eval(start_index=start_index, num_examples=num_examples)
     with open("results.json", "w") as fp:
         json.dump(results, fp, indent=4)
@@ -95,7 +105,7 @@ def main() -> None:
     parser.add_argument(
         "--train-restore-policy",
         choices=["strict", "permissive"],
-        default="strict",
+        default="permissive",
         help="Checkpoint restore policy for train command.",
     )
     parser.add_argument(
@@ -104,10 +114,20 @@ def main() -> None:
         default="permissive",
         help="Checkpoint restore policy for eval command.",
     )
+    parser.add_argument(
+        "--model-checkpoint-source",
+        choices=["tunix", "huggingface"],
+        default=None,
+        help="Optional base model checkpoint source override for train/eval.",
+    )
     args = parser.parse_args()
+    selected_model_source = args.model_checkpoint_source
 
     if args.command == "train":
-        train(restore_policy=args.train_restore_policy)
+        train(
+            restore_policy=args.train_restore_policy,
+            model_checkpoint_source=selected_model_source,
+        )
         return
 
     if args.command == "dataset-info":
@@ -118,6 +138,7 @@ def main() -> None:
         start_index=args.start_index,
         num_examples=args.num_examples,
         restore_policy=args.eval_restore_policy,
+        model_checkpoint_source=selected_model_source,
     )
 
 

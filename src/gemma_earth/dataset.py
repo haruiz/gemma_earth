@@ -2,7 +2,7 @@ import fnmatch
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from . import logger
 from .config import Settings
@@ -32,7 +32,7 @@ class EarthDialDataset:
         """
         self.settings = settings or Settings()
 
-    def get_dataset_size_bytes(self) -> int:
+    def get_dataset_size_bytes(self) -> None | int | Literal[0]:
         """Return total size in bytes of EarthDial dataset files matching the allow pattern.
 
         Queries Hugging Face dataset metadata and sums the sizes of all sibling
@@ -118,15 +118,51 @@ class EarthDialDataset:
         settings = self.settings
         ds = load_from_disk(settings.dataset_dir)
         logger.info("Dataset loaded with %d samples.", len(ds))
-        sample = ds[0]
-        img = decode_image(sample["jpg"])
-        img.save("sample_image.jpg")
-        logger.info(
-            "Sample image saved as sample_image.jpg with size %s and mode %s",
-            img.size,
-            img.mode,
-        )
-        logger.info("Sample conversations: %s", sample.get("conversations"))
+        image_path, prompt_path = self.save_example_image_and_prompt(index=0)
+        logger.info("Sample image saved to %s", image_path)
+        logger.info("Sample prompt saved to %s", prompt_path)
+        logger.info("Sample conversations: %s", ds[0].get("conversations"))
+
+    def save_example_image_and_prompt(
+        self,
+        index: int = 0,
+        output_dir: str | Path = ".",
+        image_filename: str = "sample_image.jpg",
+        prompt_filename: str = "sample_prompt.txt",
+    ) -> tuple[Path, Path]:
+        """Save one dataset example image and formatted prompt to disk.
+
+        Args:
+            index: Dataset row index to export.
+            output_dir: Directory where files will be written.
+            image_filename: Output image file name.
+            prompt_filename: Output prompt text file name.
+
+        Returns:
+            Tuple ``(image_path, prompt_path)``.
+
+        Raises:
+            IndexError: If ``index`` is outside dataset bounds.
+        """
+        settings = self.settings
+        ds = load_from_disk(settings.dataset_dir)
+        if index < 0 or index >= len(ds):
+            raise IndexError(f"index must be in [0, {len(ds) - 1}], got {index}")
+
+        sample = ds[index]
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+
+        image = decode_image(sample["jpg"]).convert("RGB")
+        image_path = out / image_filename
+        image.save(image_path)
+
+        conversations = self._parse_conversations(sample.get("conversations", []))
+        prompt, _, _, _ = self._format_prompt_and_response(conversations)
+        prompt_path = out / prompt_filename
+        prompt_path.write_text(prompt, encoding="utf-8")
+
+        return image_path, prompt_path
 
     def _compute_validation_size(self, sample_limit: int) -> int:
         """Compute the number of examples to reserve for validation.
@@ -313,6 +349,55 @@ class EarthDialDataset:
         )
 
         return prompt, chosen_response, len(human_text) == 0, len(model_text) == 0
+
+    def build_eval_prompt(self, user_text: str) -> str:
+        """Build an evaluation prompt from one user text instruction.
+
+        Args:
+            user_text: Raw user instruction/content.
+
+        Returns:
+            Gemma-formatted multimodal prompt ending with `<start_of_turn>model`.
+        """
+        prompt, _, _, _ = self._format_prompt_and_response(
+            conversations=[{"from": "user", "value": user_text}]
+        )
+        return prompt
+
+    def load_eval_sample(self, ds: Any, idx: int) -> tuple[str, str, Any]:
+        """Load one evaluation sample from an already-loaded dataset.
+
+        Args:
+            ds: Loaded EarthDial dataset object.
+            idx: Sample index.
+
+        Returns:
+            Tuple of `(user_text, ground_truth_text, image)` where `image` is an
+            RGB PIL image decoded from dataset payload.
+
+        Raises:
+            ValueError: If `idx` is outside dataset bounds.
+        """
+        if idx < 0 or idx >= len(ds):
+            raise ValueError(f"sample index must be in [0, {len(ds) - 1}], got {idx}")
+
+        sample = ds[idx]
+        conv = self._parse_conversations(sample.get("conversations", []))
+
+        user_text = next(
+            (self._clean_text(t.get("value", "")) for t in conv if t.get("from") in ("human", "user")),
+            "",
+        )
+        gt_text = next(
+            (
+                self._clean_text(t.get("value", ""))
+                for t in conv
+                if t.get("from") in ("gpt", "assistant", "model")
+            ),
+            "",
+        )
+
+        return user_text, gt_text, decode_image(sample["jpg"])
 
     def _to_training_example(self, x: dict[str, Any], image_processor: Any) -> dict[str, Any]:
         """Transform a raw dataset row into text and image fields for SFT training.
