@@ -14,11 +14,26 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    # Dataset and model resources
+    # Dataset and model artifacts
     hf_dataset_repo_id: str = Field(default="akshaydudhane/EarthDial-Dataset")
     hf_dataset_allow_pattern: str = Field(default="training_set/**")
     gemma_tokenizer_path: str = Field(default="gs://gemma-data/tokenizers/tokenizer_gemma3.model")
     model_ckpt_path: str = Field(default="gs://gemma-data/checkpoints/gemma3-4b-it")
+    base_model_checkpoint_source: str = Field(default="tunix")
+
+
+    # Dataset split and sampling
+    num_samples: int | None = Field(default=20000)
+    min_validation_samples: int = Field(default=200)
+    max_validation_samples: int = Field(default=500)
+    val_split_ratio: float = Field(default=0.1)
+    shuffle_seed: int = Field(default=42)
+    preserve_multi_turn: bool = Field(default=True)
+
+
+    #huggingface checkpoint source settings
+    hf_model_id: str = Field(default="google/gemma-3-4b-it")
+    hf_ignore_patterns: str = Field(default="*.pth")
 
     # LoRA and model
     lora_rank: int = Field(default=16)
@@ -37,15 +52,7 @@ class Settings(BaseSettings):
     save_interval_steps: int = Field(default=200)
     max_to_keep: int = Field(default=3)
 
-    # Dataset split and sampling
-    num_samples: int | None = Field(default=20000)
-    min_validation_samples: int = Field(default=200)
-    max_validation_samples: int = Field(default=500)
-    val_split_ratio: float = Field(default=0.1)
-    shuffle_seed: int = Field(default=42)
-    preserve_multi_turn: bool = Field(default=True)
-
-    # Paths
+    # Paths and directories
     output_dir: str = Field(default="/mnt/disks/data/gemma_earth_output")
     dataset_download_dir: str = Field(default="/mnt/disks/data/earthdial-dataset")
     dataset_relative_dir: str = Field(
@@ -56,6 +63,8 @@ class Settings(BaseSettings):
     clean_start: bool = Field(default=True)
     force_download: bool = Field(default=False)
     log_sample_debug: bool = Field(default=True)
+    experiment_id_override: str | None = Field(default=None)
+    include_runtime_versions_in_experiment_id: bool = Field(default=False)
 
     @computed_field
     @property
@@ -65,15 +74,9 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
-    def checkpoint_dir(self) -> str:
-        """Resolved checkpoint directory."""
-        return str(Path(self.output_dir) / "checkpoints")
-
-    @computed_field
-    @property
-    def tensorboard_log_dir(self) -> str:
-        """Resolved TensorBoard log directory."""
-        return str(Path(self.output_dir) / "tensorboard")
+    def experiments_dir(self) -> str:
+        """Resolved experiments directory."""
+        return str(Path(self.output_dir) / "experiments")
 
     @field_validator("batch_size")
     @classmethod
@@ -137,3 +140,11 @@ class Settings(BaseSettings):
         if v < 0:
             raise ValueError("weight_decay must be non-negative")
         return v
+
+    @field_validator("base_model_checkpoint_source")
+    @classmethod
+    def validate_base_model_checkpoint_source(cls, v: str) -> str:
+        normalized = v.strip().lower()
+        if normalized not in {"tunix", "huggingface"}:
+            raise ValueError("base_model_checkpoint_source must be one of: tunix, huggingface")
+        return normalized
