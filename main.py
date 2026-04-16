@@ -4,6 +4,12 @@ import os
 import tempfile
 from typing import Literal
 
+from datasets import load_from_disk
+
+from gemma_earth import create_trainer
+from gemma_earth.config import Settings
+from gemma_earth.dataset import EarthDialDataset
+
 
 # Keep temporary files and Hugging Face cache on the mounted data disk.
 # This avoids out-of-disk-space issues on the smaller boot volume and preserves
@@ -27,8 +33,6 @@ def train(
     """Run model training."""
     configure_runtime()
 
-    from gemma_earth import create_trainer
-
     gemma_earth = create_trainer(
         restore_policy=restore_policy,
         model_source=model_checkpoint_source,
@@ -45,8 +49,6 @@ def eval(
     """Run model evaluation and write JSON results."""
     configure_runtime()
 
-    from gemma_earth import create_trainer
-
     gemma_earth = create_trainer(
         restore_policy=restore_policy,
         model_source=model_checkpoint_source,
@@ -59,11 +61,6 @@ def eval(
 def dataset_info() -> None:
     """Print EarthDial remote size and local number of entries."""
     configure_runtime()
-
-    from datasets import load_from_disk
-
-    from gemma_earth.config import Settings
-    from gemma_earth.dataset import EarthDialDataset
 
     settings = Settings()
     dataset = EarthDialDataset(settings=settings)

@@ -5,7 +5,9 @@ description = "LoRA fine-tuning pipeline for Gemma 3 4B IT on EarthDial for remo
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+ "chainlit>=1.1.0",
  "datasets>=2.14.4",
+ "fastapi>=0.116.0",
  "flax>=0.12.6",
  "gcsfs>=2026.3.0",
  "google-tunix[prod]>=0.1.6",
@@ -16,12 +18,15 @@ dependencies = [
  "pyarrow<21",
  "pydantic-settings>=2.13.1",
  "python-dotenv>=1.2.2",
+ "python-multipart>=0.0.20",
  "qwix",
  "rich>=14.3.3",
  "rich-pixels>=3.0.1",
  "setuptools>=82.0.1",
  "tensorboard>=2.20.0",
  "tpu-info>=0.10.0",
+ "uvicorn>=0.35.0",
+ "vllm>=0.5.0.post1",
 ]
 
 [project.scripts]

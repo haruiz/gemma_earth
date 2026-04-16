@@ -1,35 +1,41 @@
 # Gemma Earth
 
-Scaling automated analysis of Earth Observation (EO) data is critical for environmental monitoring, disaster response, and resource management. While general-purpose Vision-Language Models (VLMs) perform well on natural imagery, they often struggle with remote sensing data due to multi-sensor complexity, varying resolutions, and fine-grained spatial patterns.
+## Project Overview
 
-The EarthDial Dataset bridges this gap with **11M+ multimodal instruction-tuning pairs** across RGB, SAR, and multispectral imagery, enabling conversational EO systems for classification, detection, captioning, and reasoning.
+The GemmaEarth project is a domain-focused Tunix post-training and benchmarking effort that fine-tunes Google’s Gemma 3 4B IT model for Earth Observation (EO) understanding, beginning with satellite scene classification on the EarthDial dataset, specifically the BigEarthNet subset—a large-scale Sentinel benchmark for multi-label land-use and land-cover classification.
 
-This project fine-tunes Gemma 3 4B IT for **scene classification**, using an EarthDial subset derived from [BigEarthNet](https://bigearth.net/), a large-scale Sentinel benchmark archive containing multi-label land-use and land-cover classification samples from Sentinel-1 and Sentinel-2 imagery across diverse European landscapes.
+The project showcases an end-to-end JAX-based workflow, using Tunix for LoRA fine-tuning and model loading, Grain for efficient data pipelines, Optax for optimization and learning-rate scheduling, and Orbax for checkpointing. Within this pipeline, Qwix is used to inject LoRA adapters into the base model and support parameter-efficient adaptation in a sharded training setup on TPUs.
 
-Using **LoRA fine-tuning** with JAX/Flax and Tunix, the model learns to accurately interpret land-cover patterns and classify satellite imagery across diverse EO scenarios.
+Training and evaluation are conducted on Google Cloud TPU v5litepod-8, with an emphasis on scalable benchmarking and a longer-term goal of expanding toward multitask EO reasoning across the full EarthDial dataset.
+
+## Impact
+
+This project explores how a general-purpose multimodal foundation model can be adapted to the unique challenges of Earth Observation data using the [JAX ecosystem](https://jaxstack.ai/). Compared with traditional GPU-based workflows and implementations, this TPU-oriented approach offers potential gains in scalability and efficiency, enabling faster iteration and experimentation at scale.
+
+The implementation is intentionally modular and task-ready, making it easier to expand from scene classification to multiple EO tasks such as captioning, visual question answering, and multimodal reasoning on EarthDial with minimal pipeline changes.
 
 ## Experimental Features
 
 * EarthDial dataset preparation pipeline
-* LoRA-based fine-tuning (JAX/Flax + Tunix)
+* LoRA-based fine-tuning (JAX/Flax + Tunix + Qwix)
 * Checkpoint compatibility management
 * Evaluation pipeline with JSON outputs
+* FastAPI + Chainlit inference serving workflow
 
 ## Libraries
 
 | Library               | Role                                         |
 | --------------------- | -------------------------------------------- |
-| JAX + Flax (NNX)      | Model definition and accelerated computation |
-| Tunix                 | Gemma loading, LoRA training, preprocessing  |
-| Optax                 | Optimization and scheduling                  |
-| Orbax                 | Checkpointing                                |
-| Grain                 | Data pipelines                               |
+| JAX + Flax (NNX) + XLA| High-performance tensor computation and model definition |
+| Tunix                 | LoRA fine-tuning, model loading, and generation helpers |
+| Qwix                  | Parameter-efficient LoRA injection utilities |
+| Optax                 | Optimization and learning-rate scheduling    |
+| Orbax                 | Checkpoint save/restore                      |
+| Grain                 | Data pipeline construction and iteration     |
 | Hugging Face Datasets | Dataset loading                              |
-| Hugging Face Hub      | Dataset access                               |
-| Pillow                | Image processing                             |
-| NumPy                 | Tensor manipulation                          |
-| Pydantic Settings     | Config management                            |
-| Qwix                  | Distributed/TPU setup                        |
+| Hugging Face Hub      | Dataset and checkpoint access                |
+| FastAPI + Uvicorn     | Inference API serving                        |
+| Chainlit              | Lightweight chat UI for inference            |
 | TensorBoard           | Training visualization                       |
 
 ## Requirements
@@ -56,7 +62,7 @@ src/gemma_earth/config.py      # Config via .env
 ```bash
 git clone https://github.com/haruiz/gemma_earth
 uv sync
-cp .env.standard .env
+cp .env.pro .env
 ```
 
 Update required variables:
@@ -65,7 +71,7 @@ Update required variables:
 * `OUTPUT_DIR`
 * `DATASET_DOWNLOAD_DIR`
 
-### TPU VM And Disk Setup (Optional, GCP)
+### TPU VM And Disk Setup
 
 The scripts in [scripts/create-vm.sh](scripts/create-vm.sh), [scripts/create-disk.sh](scripts/create-disk.sh), and [scripts/resize-disk.sh](scripts/resize-disk.sh) automate infrastructure setup.
 
@@ -74,8 +80,8 @@ The scripts in [scripts/create-vm.sh](scripts/create-vm.sh), [scripts/create-dis
 ```bash
 chmod +x scripts/*.sh
 PROJECT_ID=<your-gcp-project> \
-ZONE=us-west1-c \
-TPU_NAME=tpu-sprint-machine \
+ZONE=<TPU_ZONE> \
+TPU_NAME=<TPU_VM_NAME> \
 ACCELERATOR_TYPE=v5litepod-8 \
 ./scripts/create-vm.sh
 ```
@@ -84,11 +90,11 @@ ACCELERATOR_TYPE=v5litepod-8 \
 
 ```bash
 PROJECT_ID=<your-gcp-project> \
-ZONE=us-west1-c \
-TPU_NAME=tpu-sprint-machine \
-DISK_NAME=data-disk \
-DISK_SIZE=1500GB \
-MOUNT_POINT=/mnt/disks/data \
+ZONE=<TPU_ZONE> \
+TPU_NAME=<TPU_VM_NAME> \
+DISK_NAME=<DATA_DISK_NAME> \
+DISK_SIZE=<DISK_SIZE_GB> \
+MOUNT_POINT=<MOUNT_POINT> \
 ./scripts/create-disk.sh
 ```
 
@@ -96,11 +102,11 @@ MOUNT_POINT=/mnt/disks/data \
 
 ```bash
 PROJECT_ID=<your-gcp-project> \
-ZONE=us-west1-c \
-TPU_NAME=tpu-sprint-machine \
-DISK_NAME=data-disk \
-NEW_SIZE_GB=2000 \
-MOUNT_POINT=/mnt/disks/data \
+ZONE=<TPU_ZONE> \
+TPU_NAME=<TPU_VM_NAME> \
+DISK_NAME=<DATA_DISK_NAME> \
+NEW_SIZE_GB=<NEW_DISK_SIZE_GB> \
+MOUNT_POINT=<MOUNT_POINT> \
 ./scripts/resize-disk.sh
 ```
 
@@ -108,6 +114,68 @@ Notes:
 
 * Use the same `TPU_NAME` and `ZONE` across all three scripts.
 * Run `./scripts/<script>.sh --help` to see all supported environment variables.
+
+### Run Inference UI Remotely From A TPU VM
+
+Use this flow when the model runs on the TPU VM and you want to access the UI from your local machine.
+
+1. Add an SSH host entry on your local machine (in `~/.ssh/config`):
+
+```sshconfig
+Host <SSH_HOST_ALIAS>
+  HostName <TPU_VM_EXTERNAL_IP>
+  User <SSH_USER>
+  IdentityFile ~/.ssh/google_compute_engine
+    IdentitiesOnly yes
+    CheckHostIP no
+    StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/google_compute_known_hosts
+    ServerAliveInterval 60
+```
+
+2. Add the TPU host key to your known hosts file (run locally):
+
+```bash
+ssh-keyscan -H <TPU_VM_EXTERNAL_IP> >> ~/.ssh/google_compute_known_hosts
+```
+
+3. SSH into the TPU VM and start the API server:
+
+```bash
+ssh <SSH_HOST_ALIAS>
+cd ~/workspace/<REPO_NAME>
+
+uv run python scripts/serve_fastapi.py \
+  --model-checkpoint-source tunix \
+  --model-dir <MODEL_CHECKPOINT_DIR> \
+  --host 127.0.0.1 \
+  --port 8000
+```
+
+4. In another shell on the same TPU VM, start the Chainlit UI:
+
+```bash
+cd ~/workspace/<REPO_NAME>
+uv run chainlit run scripts/serve_ui.py --host 127.0.0.1 --port 8501
+```
+
+5. From your local machine, open an SSH tunnel to the UI:
+
+```bash
+ssh -N -L 8501:127.0.0.1:8501 <SSH_HOST_ALIAS>
+```
+
+6. Open the UI locally:
+
+```text
+http://localhost:8501
+```
+
+Optional: tunnel both API and UI if you want local access to both endpoints:
+
+```bash
+ssh -N -L 8000:127.0.0.1:8000 -L 8501:127.0.0.1:8501 <SSH_HOST_ALIAS>
+```
 
 ## Experiment Parameters And Infrastructure
 
@@ -145,9 +213,9 @@ Notes:
 | Component | Configuration |
 | --- | --- |
 | TPU model | `v5litepod-8` |
-| TPU VM name | `tpu-sprint-machine` |
+| TPU VM name | `<TPU_VM_NAME>` |
 | TPU runtime image | `tpu-ubuntu2204-base` |
-| Zone strategy | Primary `us-central1-a` with fallback zones (`us-south1-a`, `us-west1-c`, `us-west4-a`, `europe-west4-b`) |
+| Zone strategy | Primary `<PRIMARY_TPU_ZONE>` with fallback zones (`<FALLBACK_ZONE_1>`, `<FALLBACK_ZONE_2>`, `<FALLBACK_ZONE_3>`, `<FALLBACK_ZONE_4>`) |
 | Service account | `tpu-vm-sa` with TPU admin, Storage admin, Logging writer, Monitoring metric writer roles |
 | VM bootstrap | Installs `python3`, `python3-venv`, `curl`, `ca-certificates`, and `uv` at `/opt/uv` |
 | Data disk type | `pd-ssd` |
@@ -248,7 +316,7 @@ Main contributions:
 
 ## Extending To Other EarthDial Tasks
 
-Current training in this repo is focused on classification-style examples. To further fine-tune on the rest of EarthDial tasks (captioning, VQA, reasoning, etc.), use the dataset pipeline in [dataset.py](/home/haruiz/workspace/gemma_earth/src/gemma_earth/dataset.py):
+Current training in this repo is focused on classification-style examples. To further fine-tune on the rest of EarthDial tasks (captioning, VQA, reasoning, etc.), use the dataset pipeline in [dataset.py](src/gemma_earth/dataset.py):
 
 1. Define task selection in `EarthDialDataset`:
 Add task filtering before `_build_pipeline(...)` in `build(...)`. Use metadata fields available in each row (for example task/category fields in conversations or sample metadata) and create per-task or mixed-task splits.
@@ -285,10 +353,10 @@ If you use this project, please cite:
 ```bibtex
 @misc{gemma_earth_2026,
   title={Gemma Earth: Fine-tuning Gemma for Remote Sensing Scene Classification},
-  author={Henry Ruiz Guzman},
+  author={<AUTHOR_NAME>},
   year={2026},
   howpublished={GitHub repository},
-  url={https://github.com/haruiz/gemma_earth}
+  url={https://github.com/<GITHUB_USER_OR_ORG>/<REPO_NAME>}
 }
 ```
 
@@ -330,3 +398,25 @@ If you use this project, please cite:
 ## Acknowledgements
 
 Google Cloud credits are provided for this project #TPUSprint
+
+## Tips
+
+### Save TPU Costs When Idle
+
+To reduce cost, stop the TPU VM when you are not using it.
+
+When you start it again, the external IP can change. Refresh the SSH connection info by running:
+
+```bash
+gcloud alpha compute tpus tpu-vm ssh <SSH_USER>@<TPU_VM_NAME> --zone=<TPU_ZONE> --tunnel-through-iap --dry-run
+```
+
+Then:
+
+1. Copy the updated external IP from the dry-run output.
+2. Update the `HostName` value in your `~/.ssh/config` entry for `<SSH_HOST_ALIAS>`.
+3. Reconnect with:
+
+```bash
+ssh <SSH_HOST_ALIAS>
+```

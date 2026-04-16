@@ -16,6 +16,10 @@ wheels/
 # C extensions
 *.so
 
+#chainlit
+.chainlit/
+.files
+
 # Distribution / packaging
 .Python
 develop-eggs/
@@ -169,3 +173,4 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+chainlit.md
