@@ -213,7 +213,7 @@ ssh -N -L 8000:127.0.0.1:8000 -L 8501:127.0.0.1:8501 <SSH_HOST_ALIAS>
 | Component | Configuration |
 | --- | --- |
 | TPU model | `v5litepod-8` |
-| TPU VM name | `tpu-sprint-machine` |
+| TPU VM name | `<TPU_VM_NAME>` |
 | TPU runtime image | `tpu-ubuntu2204-base` |
 | Zone strategy | Primary `us-west1-c` with fallback zones (`us-central1-a`, `us-south1-a`, `us-west4-a`, `europe-west4-b`) |
 | Service account | `tpu-vm-sa` with TPU admin, Storage admin, Logging writer, Monitoring metric writer roles |
