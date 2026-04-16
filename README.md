@@ -213,9 +213,9 @@ ssh -N -L 8000:127.0.0.1:8000 -L 8501:127.0.0.1:8501 <SSH_HOST_ALIAS>
 | Component | Configuration |
 | --- | --- |
 | TPU model | `v5litepod-8` |
-| TPU VM name | `<TPU_VM_NAME>` |
+| TPU VM name | `tpu-sprint-machine` |
 | TPU runtime image | `tpu-ubuntu2204-base` |
-| Zone strategy | Primary `<PRIMARY_TPU_ZONE>` with fallback zones (`<FALLBACK_ZONE_1>`, `<FALLBACK_ZONE_2>`, `<FALLBACK_ZONE_3>`, `<FALLBACK_ZONE_4>`) |
+| Zone strategy | Primary `us-west1-c` with fallback zones (`us-central1-a`, `us-south1-a`, `us-west4-a`, `europe-west4-b`) |
 | Service account | `tpu-vm-sa` with TPU admin, Storage admin, Logging writer, Monitoring metric writer roles |
 | VM bootstrap | Installs `python3`, `python3-venv`, `curl`, `ca-certificates`, and `uv` at `/opt/uv` |
 | Data disk type | `pd-ssd` |
@@ -275,6 +275,8 @@ results.json
 
 * `--train-restore-policy` supports `strict` and `permissive` (default: `permissive`).
 * `--eval-restore-policy` supports `strict` and `permissive` (default: `permissive`).
+* `strict` means full checkpoint restore only: all expected parameters must match and load successfully. If there is a mismatch (for example missing keys, unexpected keys, or incompatible shapes), restore fails.
+* `permissive` means partial checkpoint restore is allowed: compatible parameters are loaded, and non-matching parameters are skipped (typically staying at initialized values).
 * `permissive` restore works for both checkpoint sources (`tunix` and `huggingface`).
 * `scripts/one_example_eval.py` supports both `tunix` and `huggingface`.
 
@@ -298,7 +300,7 @@ Planned next steps for this project include:
 
 * Scaling fine-tuning from the current subset to the full EarthDial dataset.
 * Attempting multitask fine-tuning across classification, captioning, visual question answering, and reasoning tasks.
-* Evaluating cross-task transfer to measure whether multitask training improves generalization on unseen EO scenarios.
+* Benchmark the performance of the Pipeline across different types of TPUs (v4 vs v5), and make compatible with GPU-based training for broader accessibility.
 * Studying trade-offs between task balance, training stability, and compute cost on larger TPU runs.
 
 ## Contributions
@@ -316,25 +318,8 @@ Main contributions:
 
 ## Extending To Other EarthDial Tasks
 
-Current training in this repo is focused on classification-style examples. To further fine-tune on the rest of EarthDial tasks (captioning, VQA, reasoning, etc.), use the dataset pipeline in [dataset.py](src/gemma_earth/dataset.py):
-
-1. Define task selection in `EarthDialDataset`:
-Add task filtering before `_build_pipeline(...)` in `build(...)`. Use metadata fields available in each row (for example task/category fields in conversations or sample metadata) and create per-task or mixed-task splits.
-
-2. Adjust prompt/response formatting:
-Update `_format_prompt_and_response(...)` to preserve task-specific instruction style. For generative tasks, keep descriptive answers unchanged; for short-answer tasks, enforce concise target formats.
-
-3. Add task-aware preprocessing:
-Extend `_to_training_example(...)` to emit optional task identifiers (for example prefixes like `Task: Captioning` in prompt text) so a single model can learn multiple behaviors.
-
-4. Tune sampling and balance:
-In `build(...)`, rebalance tasks before split (or oversample underrepresented tasks) to avoid classification dominating the objective.
-
-5. Validate with task-specific eval:
-Reuse `eval(...)` in the trainer as a template, but add task-specific metrics and output normalization per task (for example exact-match for VQA, text quality metrics for captioning).
-
-6. Start with controlled multitask runs:
-Begin with a small subset of 2-3 tasks, verify convergence, then scale to full multitask training once prompt formatting and balancing are stable.
+Current training in this repository focuses on the classification subset of EarthDial (BigEarthNet). However, the pipeline is designed to be flexible and easily extensible to other tasks.
+To fine-tune the model on additional EarthDial tasks (e.g., captioning, VQA, reasoning), simply update `DATASET_RELATIVE_DIR` to point to the desired dataset subset and rerun the training pipeline.
 
 
 ## Credits
@@ -361,6 +346,14 @@ If you use this project, please cite:
 ```
 
 ### Related Work
+
+This project directly builds on prior work from:
+
+* The EarthDial team for creating the EarthDial multimodal EO instruction-tuning dataset and research framework ([paper](https://arxiv.org/abs/2412.15190)).
+* The BigEarthNet team for creating and maintaining the large-scale Sentinel benchmark used by the classification subset in this project ([paper](https://arxiv.org/abs/1902.06148)).
+
+If you build on this repository, please make sure to cite these amazing works in addition to this project.
+
 
 ```bibtex
 @misc{soni2024earthdial,
@@ -395,10 +388,6 @@ If you use this project, please cite:
 
 ```
 
-## Acknowledgements
-
-Google Cloud credits are provided for this project #TPUSprint
-
 ## Tips
 
 ### Save TPU Costs When Idle
@@ -420,3 +409,9 @@ Then:
 ```bash
 ssh <SSH_HOST_ALIAS>
 ```
+
+
+## Acknowledgements
+
+Google Cloud credits are provided for this project #TPUSprint
+
