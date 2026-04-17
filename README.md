@@ -403,10 +403,10 @@ If you use this project, please cite:
 ```bibtex
 @misc{gemma_earth_2026,
   title={Gemma Earth: Fine-tuning Gemma for Remote Sensing Scene Classification},
-  author={<AUTHOR_NAME>},
+  author={Henry Ruiz},
   year={2026},
   howpublished={GitHub repository},
-  url={https://github.com/<GITHUB_USER_OR_ORG>/<REPO_NAME>}
+  url={https://github.com/haruiz/gemma_earth},
 }
 ```
 
