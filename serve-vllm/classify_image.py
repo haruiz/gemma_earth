@@ -16,8 +16,8 @@ def encode_image(image_path):
         return base64.b64encode(image_file.read()).decode("utf-8")
 
 def main():
-    # Use the first argument as the image path, or default to arable-land.jpg
-    image_path = sys.argv[1] if len(sys.argv) > 1 else "arable-land.jpg"
+    # Use the first argument as the image path, or default to sample_image.jpg
+    image_path = sys.argv[1] if len(sys.argv) > 1 else "sample_image.jpg"
     
     try:
         base64_image = encode_image(image_path)

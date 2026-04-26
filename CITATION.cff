@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this project, please cite it as below."
+title: "Gemma Earth: Fine-tuning Gemma 3 for Remote Sensing Scene Classification"
+type: software
+authors:
+  - family-names: "Ruiz"
+    given-names: "Henry"
+year: 2026
+repository-code: "https://github.com/haruiz/gemma_earth"
+url: "https://github.com/haruiz/gemma_earth"
+keywords:
+  - "earth observation"
+  - "remote sensing"
+  - "gemma"
+  - "jax"
+  - "lora"
+license: "NOASSERTION"
+preferred-citation:
+  type: article
+  title: "Gemma Earth: Fine-tuning Gemma for Remote Sensing Scene Classification"
+  authors:
+    - family-names: "Ruiz"
+      given-names: "Henry"
+  year: 2026
+  url: "https://github.com/haruiz/gemma_earth"
