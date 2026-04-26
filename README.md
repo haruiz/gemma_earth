@@ -393,14 +393,21 @@ Current training in this repository focuses on the classification subset of Eart
 To fine-tune the model on additional EarthDial tasks (e.g., captioning, VQA, reasoning), simply update `DATASET_RELATIVE_DIR` to point to the desired dataset subset and rerun the training pipeline.
 
 
-## Credits
+## License Scope And Third-Party Terms
 
-This project builds upon:
+The license in this repository applies only to the source code and other original
+materials provided in this GitHub repository.
 
-* EarthDial Dataset
-* Gemma 3 4B IT by Google
-* [BigEarthNet](https://bigearth.net/) — A Large-Scale Sentinel Benchmark Archive for remote sensing scene classification
-* The open-source JAX/Flax ecosystem
+It does not replace, modify, or extend the license terms for third-party assets,
+including:
+
+* Gemma model weights and tokenizer files
+* EarthDial dataset files
+* BigEarthNet dataset files
+* Any third-party model or dataset content downloaded from Hugging Face
+
+Use, distribution, and commercial use of those third-party assets remain subject
+to their respective upstream licenses and terms.
 
 ## Citation
 
@@ -408,7 +415,7 @@ If you use this project, please cite:
 
 ```bibtex
 @misc{gemma_earth_2026,
-  title={Gemma Earth: Fine-tuning Gemma for Remote Sensing Scene Classification},
+  title={Gemma Earth: Fine-tuning Gemma 3 4B IT for Remote Sensing Scene Classification},
   author={Henry Ruiz},
   year={2026},
   howpublished={GitHub repository},
@@ -416,7 +423,7 @@ If you use this project, please cite:
 }
 ```
 
-### Related Work
+### Related Work & Credits
 
 This project directly builds on prior work from:
 
